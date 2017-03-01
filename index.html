@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="style.css"/>
+    <script type="text/javascript" src="lib/axios/dist/axios.standalone.js"></script>
+    <script type="text/javascript" src="lib/CryptoJS/rollups/hmac-sha256.js"></script>
+    <script type="text/javascript" src="lib/CryptoJS/rollups/sha256.js"></script>
+    <script type="text/javascript" src="lib/CryptoJS/components/hmac.js"></script>
+    <script type="text/javascript" src="lib/CryptoJS/components/enc-base64.js"></script>
+    <script type="text/javascript" src="lib/url-template/url-template.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/sigV4Client.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/apiGatewayClient.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/simpleHttpClient.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/utils.js"></script>
+    <script type="text/javascript" src="apigClient.js"></script>
+  </head>
+
+  <body>
+  <form id="credentials">
+    <label>AccessKey: <input type="password" id="accessKey" /></label>
+    <label>SecretKey: <input type="password" id="secretKey" /></label>
+    <input type="submit" value="Send success" />
+  </form>
+  <script>
+
+const form = document.getElementById("credentials")
+  .addEventListener('submit', handleSubmit)
+
+function handleSubmit(event) {
+  event.preventDefault();
+  const accessKey = document.getElementById("accessKey").value
+  const secretKey = document.getElementById("secretKey").value
+
+  if (accessKey.length === 0 || secretKey.length === 0) {
+    alert("Both an accessKey and a secretKey are needed!")
+  } else {
+    const apigClient = apigClientFactory.newClient({
+        accessKey: accessKey,
+        secretKey: secretKey,
+        region: 'us-west-2'
+    })
+
+    const listExecutionBody = {
+      maxResults: 1,
+      stateMachineArn: "arn:aws:states:us-west-2:927034868273:stateMachine:ManualStepTest",
+      statusFilter: "RUNNING"
+    }
+    apigClient.listexecutionsPost({}, listExecutionBody)
+    .then(function(result){
+      const executions = result.data.executions;
+      if (executions.length === 0) {
+        return console.log('No running StepFunction at the moment')
+      }
+      const getActivityTaskBody = {
+        workerName: 'TestWorkerName',
+        activityArn: 'arn:aws:states:us-west-2:927034868273:activity:ManualStepTest'
+      };
+      apigClient.getactivitytaskPost({}, getActivityTaskBody)
+        .then(function(result){
+          const taskToken = result.data.taskToken
+          console.log('Task token', taskToken)
+          const sendTaskSuccessBody = {
+            output: '{"message": "it worked!"}',
+            taskToken: taskToken
+          }
+          apigClient.sendtasksuccessPost({}, sendTaskSuccessBody)
+          .then(function(result){
+            console.log('success: ', result)
+          }).catch(function(result){
+            console.log('failure: ', resut)
+          });
+        }).catch( function(result){
+          console.log(result)
+        });
+    })
+    .catch(function(result){
+      console.log('Failed listing executions', result)
+    })
+  }
+}
+  </script>
+
+  </body>
+</html>
